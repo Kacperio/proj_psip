@@ -562,21 +562,3 @@ class App(Tk):
         db_soldiers = session.query(Soldier).all()
         for  soldier in db_soldiers:
             self.map_widget.set_marker(self.convert_point(soldier.location)[0], self.convert_point(soldier.location)[1])
-        
-        
-        
-        
-        
-        
-        
-    
-
-# if __name__ == "__main__":   
-#     log_app = Log()
-#     log_app.start()
-
-if __name__ == "__main__":   
-    app = App()
-    app.start()
-    
-    # TODO mapy
