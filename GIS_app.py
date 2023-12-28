@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import messagebox
-from tkinter.ttk import Combobox, Style
+from tkinter.ttk import Combobox
 from tkintermapview import TkinterMapView
 from random import uniform, randint
 import ttkbootstrap as ttk
@@ -9,9 +9,9 @@ from shapely import wkb, Polygon
 from sqlalchemy import create_engine, Sequence, Column, Integer, String
 import sqlalchemy
 from sqlalchemy.orm import declarative_base, sessionmaker
-from geoalchemy2 import Geometry, functions
+from geoalchemy2 import Geometry
 
-
+###### DB CONNECTION ######
 db_params = sqlalchemy.URL.create(
     drivername='postgresql+psycopg2',
     username='postgres',
@@ -26,6 +26,7 @@ Base = declarative_base()
 Session = sessionmaker(bind=engine)
 session = Session()
 
+###### TABLE ######
 class Military_training_ground(Base):
     __tablename__ = "Military_training_grounds"
     
@@ -54,10 +55,7 @@ class Soldier(Base):
         
 Base.metadata.create_all(engine)
 
-zasieg = [(uniform(49,55), uniform(14, 24)), (uniform(49,55), uniform(14, 24)), (uniform(49,55), uniform(14, 24)), (uniform(49,55), uniform(14, 24))]
-obj = Military_training_ground('biedrowko', zasieg)
-
-
+###### LOGIN ######
 class Log(Tk):
   
     def __init__(self, *args, **kwargs):
@@ -115,7 +113,8 @@ class Log(Tk):
     
     def start(self):
         self.mainloop()
-        
+
+###### GIS ######        
 class App(Tk):
     vertices = []
     
@@ -223,13 +222,13 @@ class App(Tk):
         self.map_widget.add_left_click_map_command(self.take_coords)
         
         ###### PANEL ######
-        self.btn_details = Button(self.frame_panel, text='details', command=self.delete_mtb)
+        self.btn_details = Button(self.frame_panel, text='details', command=self.details_of_mtb)
         self.btn_create = Button(self.frame_panel, text='create', command=self.modify_mtb1)
         self.btn_delete = Button(self.frame_panel, text='delete', command=self.modify_mtb2)
         self.btn_edit = Button(self.frame_panel, text='edit', command=self.details_of_soldier)
         self.btn_refresh = Button(self.frame_panel, text='refresh', command=self.refresh)
         self.btn_clean = Button(self.frame_panel, text='clean', command=self.clean_map)
-        self.btn_map = Button(self.frame_panel, text='selected', command=self.add_mtb)
+        self.btn_map = Button(self.frame_panel, text='selected', command=self.show_soldier_of_mtb)
         self.btn_map_all = Button(self.frame_panel, text='all soldiers', command=self.clear_entry)
         self.lbl_map = Label(self.frame_panel, text='print map of')
         
@@ -243,6 +242,7 @@ class App(Tk):
         self.btn_map.grid(row=1, column=2)
         self.btn_map_all.grid(row=2, column=2)
 
+##### FUNCTIONAL #####
     def convert_point(self, point):
         point = wkb.loads(str(point), hex=True)
         return (point.y, point.x)
@@ -280,7 +280,8 @@ class App(Tk):
         self.list_of_vertices.delete(0,END)
         for idx, vertex in enumerate(self.vertices):
             self.list_of_vertices.insert(idx,vertex)
-            
+
+##### DB #####
     def add_soldier(self):
         i = self.list_of_vertices.index(ACTIVE)
         
@@ -392,7 +393,7 @@ class App(Tk):
         
         session.commit()
         self.refresh()
-## WORK DONE TOP 
+
     def modify_mtb1(self):
         i = self.lb_list_of_mtb.index(ACTIVE)
         lm = []
@@ -422,12 +423,50 @@ class App(Tk):
             if self.list_of_vertices.size() != 2:
                 reverso = [t[::-1] for t in self.vertices]
                 location = Polygon(reverso)
-                mtb2.location = location
+                mtb2.location = f'{location}'
             
         session.commit()    
         self.clear_entry()
         self.refresh()
+
+    def details_of_mtb(self):
+        i = self.lb_list_of_mtb.index(ACTIVE)
+        lm = []
+        ll = []
+        ls = []
+        
+        db_mtb = session.query(Military_training_ground).all()
+        for mtb in db_mtb:
+            lm.append(mtb.name)
+        db_mtb = session.query(Military_training_ground).filter(Military_training_ground.name == lm[i])
+        for mtb in db_mtb:
+            ll.append(mtb.name)
+        self.lbl_mtb_name_value.config(text=ll)
+        
+        db_soldiers = session.query(Soldier).filter(Soldier.polygon == ll[0])
+        for soldier in db_soldiers:
+            ls.append(soldier.polygon)
+        print(ls)
+        self.lbl_mtb_number_of_soldier_value.config(text=len(ls))
+
+    def show_soldier_of_mtb(self):
+        self.lb_list_of_soldier.delete(0,END)
+        i = self.lb_list_of_mtb.index(ACTIVE)
+        lm = []
+        ll = []
+        
+        db_mtb = session.query(Military_training_ground).all()
+        for mtb in db_mtb:
+            lm.append(mtb.name)
+        db_mtb = session.query(Military_training_ground).filter(Military_training_ground.name == lm[i])
+        for mtb in db_mtb:
+            ll.append(mtb.name)
+        
+        db_soldiers = session.query(Soldier).filter(Soldier.polygon == ll[0])
+        for idx, soldier in enumerate(db_soldiers):
+            self.lb_list_of_soldier.insert(idx,f'{soldier.name} - {soldier.role}')
     
+##### MAPPING #####
     def create_random_polygon(self):
         number_of_vertices = randint(3,10)
         list_of_vertices = []
@@ -436,24 +475,14 @@ class App(Tk):
             list_of_vertices.append(vertex)
         self.map_widget.set_polygon(list_of_vertices, border_width=2, outline_color='black')
     
-    def create_soldier_marker(self):
-        i = self.lb_list_of_soldier.index(ACTIVE)
-        db_soldiers = session.query(Soldier).all()
-        
-    
-        # x = db_soldiers[i].loc
-        # y = db_soldiers[i].loc[1]
-        # marker = self.map_widget.set_marker(x, y)
-        # print(x)
-
     def create_random_markers(self):
         number_of_markers = randint(1,34)
         for marker in range(number_of_markers):
             marker = self.map_widget.set_marker(uniform(50,54), uniform(14.5,23.5))
-    
-    def details_of_mtb(self):
+## WORK DONE TOP     
+    def create_soldiers_marker(self):
         pass
-    
+
     def start(self):
         self.mainloop()
 
@@ -464,3 +493,5 @@ class App(Tk):
 if __name__ == "__main__":   
     app = App()
     app.start()
+    
+    # TODO mapy
