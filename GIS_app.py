@@ -4,7 +4,8 @@ from tkinter.ttk import Combobox
 from tkintermapview import TkinterMapView
 from random import uniform, randint
 import ttkbootstrap as ttk
-from shapely import wkb, Polygon
+from shapely import wkb
+from shapely.geometry import Polygon, mapping
 
 from sqlalchemy import create_engine, Sequence, Column, Integer, String
 import sqlalchemy
@@ -122,28 +123,33 @@ class App(Tk):
         Tk.__init__(self, *args, **kwargs)
         
         self.title('System to manage military training grounds')
-        self.geometry("800x680+50+50")
+        self.geometry("850x720+50+50")
         
         self.style = ttk.Style("darkly")
 
         self.create_widgets()
         self.after_idle(self.refresh)
+        self.after_idle(self.create_all_poly)
         
     def create_widgets(self):
         ###### FRAME ######
         self.frame_list = Frame(self)
         self.frame_panel = Frame(self)
+        self.frame_panel2 = Frame(self)
+        self.frame_panel_map = Frame(self)
         self.frame_details = Frame(self)
         self.frame_map = Frame(self)
         self.frame_entry = Frame(self)
         self.frame_entry2 = Frame(self)
         
-        self.frame_list.grid(row=0, column=0)
+        self.frame_list.grid(row=0, column=0, columnspan=2)
         self.frame_panel.grid(row=1, column=0)
-        self.frame_details.grid(row=2, column=0)
-        self.frame_map.grid(row=1, column=1, rowspan=2, columnspan=2)
-        self.frame_entry.grid(row=0, column=1)
-        self.frame_entry2.grid(row=0, column=2)
+        self.frame_panel2.grid(row=1, column=1)
+        self.frame_panel_map.grid(row=2, column=0, columnspan=2, pady=10)
+        self.frame_details.grid(row=3, column=0, columnspan=2)
+        self.frame_map.grid(row=1, column=2, rowspan=3, columnspan=2)
+        self.frame_entry.grid(row=0, column=2)
+        self.frame_entry2.grid(row=0, column=3)
         
         ###### LIST ######
         self.lb_list_of_mtb = Listbox(self.frame_list)
@@ -215,38 +221,74 @@ class App(Tk):
         self.list_of_vertices.grid(row=1, column=0)
         
         ###### MAP ######
-        self.map_widget = TkinterMapView(self.frame_map, width=500, height=450, corner_radius=45)
+        self.map_widget = TkinterMapView(self.frame_map, width=500, height=450, corner_radius=30)
         self.map_widget.grid(row=0, column=0)
         self.map_widget.set_position(52, 19)
         self.map_widget.set_zoom(6)
         self.map_widget.add_left_click_map_command(self.take_coords)
         
         ###### PANEL ######
-        self.btn_details = Button(self.frame_panel, text='details', command=self.details_of_mtb)
-        self.btn_create = Button(self.frame_panel, text='create', command=self.modify_mtb1)
-        self.btn_delete = Button(self.frame_panel, text='delete', command=self.modify_mtb2)
-        self.btn_edit = Button(self.frame_panel, text='edit', command=self.details_of_soldier)
-        self.btn_refresh = Button(self.frame_panel, text='refresh', command=self.refresh)
-        self.btn_clean = Button(self.frame_panel, text='clean', command=self.clean_map)
-        self.btn_map = Button(self.frame_panel, text='selected', command=self.show_soldier_of_mtb)
-        self.btn_map_all = Button(self.frame_panel, text='all soldiers', command=self.clear_entry)
-        self.lbl_map = Label(self.frame_panel, text='print map of')
+        self.lbl_soldiers = Label(self.frame_panel, text='Soldiers')
+        self.btn_add_soldier = Button(self.frame_panel, text='Add', command=self.add_soldier, width=12)
+        self.btn_delete_soldier = Button(self.frame_panel, text='Delete', command=self.delete_soldier, width=12)
+        self.btn_modify_soldier1 = Button(self.frame_panel, text='Download data', command=self.modify_soldier1, width=12)
+        self.btn_modify_soldier2 = Button(self.frame_panel, text='Update', command=self.modify_soldier2, width=12)
+        self.btn_details_of_soldier = Button(self.frame_panel, text='Details', command=self.details_of_soldier, width=12)
         
-        self.btn_details.grid(row=0, column=0)
-        self.btn_create.grid(row=1, column=0)
-        self.btn_delete.grid(row=2, column=0)
-        self.btn_edit.grid(row=0, column=1)
-        self.btn_refresh.grid(row=1, column=1)
-        self.btn_clean.grid(row=2, column=1)
-        self.lbl_map.grid(row=0, column=2)
-        self.btn_map.grid(row=1, column=2)
-        self.btn_map_all.grid(row=2, column=2)
+        self.lbl_mtb = Label(self.frame_panel2, text='Polygons')
+        self.btn_add_mtb = Button(self.frame_panel2, text='Add', command=self.add_mtb, width=15)
+        self.btn_delete_mtb = Button(self.frame_panel2, text='Delete', command=self.delete_mtb, width=15)
+        self.btn_modify_mtb1 = Button(self.frame_panel2, text='Download data', command=self.modify_mtb1, width=15)
+        self.btn_modify_mtb2 = Button(self.frame_panel2, text='Update', command=self.modify_mtb2, width=15)
+        self.btn_details_of_mtb = Button(self.frame_panel2, text='Details', command=self.details_of_mtb, width=15)
+        self.btn_show_soldier_of_mtb = Button(self.frame_panel2, text='Soldier on polygon', command=self.show_soldier_of_mtb, width=15)
+        
+        self.lbl_map = Label(self.frame_panel_map, text='Mapping')
+        self.btn_create_soldiers_of_polygon_marker = Button(self.frame_panel_map, text='Create soldiers of polygon marker', command=self.create_soldiers_of_polygon_marker)
+        self.btn_create_mtb_map = Button(self.frame_panel_map, text='Create polygon area', command=self.create_mtb_map)
+        self.btn_create_all_poly = Button(self.frame_panel_map, text='Create all polygon area', command=self.create_all_poly)
+        self.btn_create_all_solders_marker = Button(self.frame_panel_map, text='Create all soldiers marker', command=self.create_all_solders_marker)
+        self.btn_clear = Button(self.frame_panel_map, text='Clear map', command=self.clean_map, width= 15)
+        self.btn_refresh = Button(self.frame_panel_map, text='Refresh', command=self.refresh, width= 15)
+        
+        self.lbl_soldiers.grid(row=0, column=0)
+        self.btn_add_soldier.grid(row=1, column=0, pady=2)
+        self.btn_delete_soldier.grid(row=2, column=0, pady=2)
+        self.btn_modify_soldier1.grid(row=3, column=0, pady=2)
+        self.btn_modify_soldier2.grid(row=4, column=0, pady=2)
+        self.btn_details_of_soldier.grid(row=5, column=0, pady=2)
+       
+        self.lbl_mtb.grid(row=0, column=0)
+        self.btn_add_mtb.grid(row=1, column=0, pady=2)
+        self.btn_delete_mtb.grid(row=2, column=0, pady=2)
+        self.btn_modify_mtb1.grid(row=3, column=0, pady=2)
+        self.btn_modify_mtb2.grid(row=4, column=0, pady=2)
+        self.btn_details_of_mtb.grid(row=5, column=0, pady=2)
+        self.btn_show_soldier_of_mtb.grid(row=6, column=0, pady=2)
+        
+        self.lbl_map.grid(row=0, column=0, columnspan=2)
+        self.btn_create_soldiers_of_polygon_marker.grid(row=1, column=0, pady=2)
+        self.btn_create_mtb_map.grid(row=1, column=1, pady=2)
+        self.btn_create_all_poly.grid(row=2, column=0, pady=2)
+        self.btn_create_all_solders_marker.grid(row=2, column=1, pady=2)
+        self.btn_clear.grid(row=3, column=0, pady=2)
+        self.btn_refresh.grid(row=3, column=1, pady=2)
+
+    def start(self):
+            self.mainloop()
 
 ##### FUNCTIONAL #####
-    def convert_point(self, point):
-        point = wkb.loads(str(point), hex=True)
+    def convert_point(self, wkb_point):
+        point = wkb.loads(str(wkb_point), hex=True)
         return (point.y, point.x)
-        
+
+    def convert_poly(self, wkb_poly):
+        poly = wkb.loads(bytes.fromhex(wkb_poly))
+        poly_mapped = mapping(poly)
+        poly_coordinates = poly_mapped['coordinates'][0]
+
+        return poly_coordinates
+      
     def clean_map(self):
         self.map_widget.delete_all_marker()
         self.map_widget.delete_all_polygon() 
@@ -446,7 +488,6 @@ class App(Tk):
         db_soldiers = session.query(Soldier).filter(Soldier.polygon == ll[0])
         for soldier in db_soldiers:
             ls.append(soldier.polygon)
-        print(ls)
         self.lbl_mtb_number_of_soldier_value.config(text=len(ls))
 
     def show_soldier_of_mtb(self):
@@ -479,12 +520,56 @@ class App(Tk):
         number_of_markers = randint(1,34)
         for marker in range(number_of_markers):
             marker = self.map_widget.set_marker(uniform(50,54), uniform(14.5,23.5))
-## WORK DONE TOP     
-    def create_soldiers_marker(self):
-        pass
+    
+    def create_soldiers_of_polygon_marker(self):
+        i = self.lb_list_of_mtb.index(ACTIVE)
+        lm = []
+        ll = []
+        
+        db_mtb = session.query(Military_training_ground).all()
+        for mtb in db_mtb:
+            lm.append(mtb.name)
+        db_mtb = session.query(Military_training_ground).filter(Military_training_ground.name == lm[i])
+        for mtb in db_mtb:
+            ll.append(mtb.name)
+        
+        db_soldiers = session.query(Soldier).filter(Soldier.polygon == ll[0])
+        for  soldier in db_soldiers:
+            self.map_widget.set_marker(self.convert_point(soldier.location)[0], self.convert_point(soldier.location)[1])
 
-    def start(self):
-        self.mainloop()
+    def create_mtb_map(self):
+        i = self.lb_list_of_mtb.index(ACTIVE)
+        lm = []
+        
+        db_mtb = session.query(Military_training_ground).all()
+        for mtb in db_mtb:
+            lm.append(mtb.location)
+        db_mtb = session.query(Military_training_ground).filter(Military_training_ground.location == lm[i])
+        for mtb in db_mtb:
+            area = self.convert_poly(str(mtb.location))
+            reverso = [t[::-1] for t in area]
+            self.map_widget.set_polygon(reverso)
+        
+    def create_all_poly(self):
+        i = self.lb_list_of_mtb.index(ACTIVE)
+        db_mtb = session.query(Military_training_ground).all()
+        for mtb in db_mtb:
+            area = self.convert_poly(str(mtb.location))
+            reverso = [t[::-1] for t in area]
+            self.map_widget.set_polygon(reverso)
+        
+    def create_all_solders_marker(self):
+        db_soldiers = session.query(Soldier).all()
+        for  soldier in db_soldiers:
+            self.map_widget.set_marker(self.convert_point(soldier.location)[0], self.convert_point(soldier.location)[1])
+        
+        
+        
+        
+        
+        
+        
+    
 
 # if __name__ == "__main__":   
 #     log_app = Log()
